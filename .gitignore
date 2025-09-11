@@ -1,0 +1,9 @@
+# All __pycache__ directories
+**/__pycache__
+
+# All .egg-info folders
+**/*.egg-info
+
+# Ignore all files in the data folder except example.txt
+data/*
+!data/example.txt
