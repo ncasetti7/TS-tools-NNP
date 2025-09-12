@@ -37,16 +37,16 @@ class TSOptimizer():
                 continue
             if cheminformatics.check_identity_both(first, last, self.path_generator.reactant_rdkit_mol, self.path_generator.product_rdkit_mol, self.path_generator.charge, self.path_generator.multiplicity):
                 print(f"Reaction {self.path_generator.rxn_id}: Found valid TS!")
-                optimized_reactant = calculations.constrained_optimization(first, [], self.path_generator.calc, fmax=0.01)
-                optimized_product = calculations.constrained_optimization(last, [], self.path_generator.calc, fmax=0.01)
+                optimized_reactant = calculations.optimize_geometry(first, self.path_generator.calc)
+                optimized_product = calculations.optimize_geometry(last, self.path_generator.calc)
                 write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
                 write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")
                 return True
             elif cheminformatics.check_identity_both(last, first, self.path_generator.reactant_rdkit_mol, self.path_generator.product_rdkit_mol, self.path_generator.charge, self.path_generator.multiplicity):
                 print(f"Reaction {self.path_generator.rxn_id}: Found valid TS!")
-                optimized_reactant = calculations.constrained_optimization(last, [], self.path_generator.calc, fmax=0.01)
-                optimized_product = calculations.constrained_optimization(first, [], self.path_generator.calc, fmax=0.01)
+                optimized_reactant = calculations.optimize_geometry(last, self.path_generator.calc)
+                optimized_product = calculations.optimize_geometry(first, self.path_generator.calc)
                 write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
                 write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")

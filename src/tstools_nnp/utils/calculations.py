@@ -6,7 +6,7 @@ from rdkit import Chem
 from rdkit.Geometry import Point3D
 from sella import Sella, IRC
 from ase.io import read, write
-from ase.optimize import BFGS
+from ase.optimize import BFGS, FIRE
 from ase.constraints import FixAtoms, Hookean
 from ase.io.trajectory import Trajectory
 from tstools_nnp.utils.interfaces import AIMNet2ASECalculator
@@ -27,9 +27,21 @@ def optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, verbose=Fa
     Returns:
         atoms (ase.Atoms): optimized geometry
     '''
-    pass
+    if type(calc) == AIMNet2ASECalculator:
+        calc.do_reset()
+    atoms.calc = calc
+    # Create an optimizer object
+    opt = FIRE(atoms)
+    # Run the optimization
+    if verbose:
+        opt.run(fmax=convergence, steps=max_cycles)
+    else:
+        with open(os.devnull, "w", encoding='utf-8') as f, contextlib.redirect_stdout(f):
+            opt.run(fmax=convergence, steps=max_cycles)
 
-def ts_optimize_geometry(atoms, calc, max_cycles=1000, rmse_convergence=0.01, calc_hessian=False, verbose=False):
+    return atoms
+
+def ts_optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, calc_hessian=False, verbose=False):
     '''
     Optimize a geometry with pysisyphus
 
@@ -57,7 +69,7 @@ def ts_optimize_geometry(atoms, calc, max_cycles=1000, rmse_convergence=0.01, ca
     else:
         opt = Sella(atoms, logfile=logfile)
     # Run the optimization
-    opt.run(fmax=rmse_convergence, steps=max_cycles)
+    opt.run(fmax=convergence, steps=max_cycles)
     if opt.converged is False:
         print("Sella optimization did not converge")
         return None
