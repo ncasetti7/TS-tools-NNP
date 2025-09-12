@@ -7,3 +7,9 @@
 # Ignore all files in the data folder except example.txt
 data/*
 !data/example.txt
+
+# Ignore all folders except data, run_scripts, and src
+/*
+!/data/
+!/run_scripts/
+!/src/

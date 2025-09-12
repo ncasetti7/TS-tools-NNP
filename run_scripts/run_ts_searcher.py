@@ -24,7 +24,7 @@ def get_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--defaults-file', action='store', type=str, default='run_scripts/default_arguments.yaml')
-    parser.add_argument('--input-file', action='store', type=str, default='data/reactions_am.txt')
+    parser.add_argument('--input-file', action='store', type=str, default='data/example.txt')
     parser.add_argument('--target-dir', action='store', type=str, default='work_dir')
     parser.add_argument('--model-path', action='store', type=str, required=True)
 
@@ -79,6 +79,8 @@ def obtain_transition_states(target_dir, reaction_list,
         model.share_memory()
         calc = interfaces.AIMNet2ASECalculator(model)
         batch_calc = interfaces.AIMNET(model, device)
+    else:
+        raise NotImplementedError(f"No model type {model_type}!")
     
     ts_optimizers = []
     for rxn_id, reaction in reaction_list:
