@@ -6,6 +6,7 @@ from rdkit import Chem
 import ase
 from ase.constraints import Hookean
 from tstools_nnp.utils import calculations, cheminformatics
+from tstools_nnp.utils.interfaces import AIMNet2ASECalculator
 
 metal_list = ['Al', 'Sb', 'Ag', 'As', 'Ba', 'Be', 'Bi', 'Cd', 'Ca', 'Cr', 'Co', 'Cu', 'Au', 'Fe', 
               'Pb', 'Mg', 'Mn', 'Hg', 'Mo', 'Ni', 'Pd', 'Pt', 'K', 'Rh', 'Rb', 'Ru', 'Sc', 'Ag', 
@@ -278,7 +279,8 @@ class PathGenerator():
         - list: List of energies corresponding to each step in the path.
         """
         energies = []
-        self.calc.do_reset()
+        if type(self.calc) == AIMNet2ASECalculator:
+            self.calc.do_reset()
         for coords in path_coords:
             atoms = ase.Atoms(symbols=self.atomic_symbols, positions=coords)
             atoms.info['charge'] = self.charge
