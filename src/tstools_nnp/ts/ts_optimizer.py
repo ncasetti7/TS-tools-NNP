@@ -14,6 +14,7 @@ class TSOptimizer():
 
     def check_ts_guesses(self, energies, paths, atomic_symbols, index):
         ts_guesses = self.determine_and_filter_local_maxima(energies, paths)
+        success = False
         for ts_guess in ts_guesses:
             ts_guess_atoms = ase.Atoms(symbols=atomic_symbols, positions=ts_guess)
             ts_guess_atoms.info['charge'] = self.path_generator.charge
@@ -42,7 +43,7 @@ class TSOptimizer():
                 write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
                 write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")
-                return True
+                success = True
             elif cheminformatics.check_identity_both(last, first, self.path_generator.reactant_rdkit_mol, self.path_generator.product_rdkit_mol, self.path_generator.charge, self.path_generator.multiplicity):
                 print(f"Reaction {self.path_generator.rxn_id}: Found valid TS!")
                 optimized_reactant = calculations.optimize_geometry(last, self.path_generator.calc)
@@ -50,10 +51,10 @@ class TSOptimizer():
                 write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
                 write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")
-                return True
+                success = True
             else:
                 print("TS guess did not connect the correct reactant and product.")
-        return False
+        return success
 
     def generate_ts(self):
         # Create directory for this reaction

@@ -47,6 +47,8 @@ if __name__ == "__main__":
                 if default_args['model_type'] == "AIMNET":
                     calc.do_reset()
                 min_barrier = 9999999999
+                min_ts_file = None
+                min_reactant_file = None
                 ts_folder = f"{dir}/final_ts_guess/"
                 rp_folder = f"{dir}/rp_geometries/"
                 for i in range(20):
@@ -55,27 +57,20 @@ if __name__ == "__main__":
                     if os.path.exists(ts_file) and os.path.exists(reactant_file):
                         ts_atoms = read(ts_file)
                         reactant_atoms = read(reactant_file)
-                        ts_atoms.info['charge'] = 0
-                        reactant_atoms.info['charge'] = 0
                         ts_atoms.calc = calc
                         reactant_atoms.calc = calc
                         barrier = (ts_atoms.get_potential_energy() - reactant_atoms.get_potential_energy()) * 23.06
                         if barrier < min_barrier:
                             min_barrier = barrier
+                            min_ts_file = ts_file
+                            min_reactant_file = reactant_file
                 if min_barrier != 9999999999:
-                    results.append((dir, min_barrier))
+                    results.append((dir, min_ts_file, min_reactant_file))
 
-        if args.save_results:
-            with open(f"{args.target_dir}_barriers.txt", 'w') as f:
-                # If possible, sort results by index
-                try:
-                    results.sort(key=lambda x: int(x[0].split('R')[-1]))
-                except Exception as e:
-                    print(f"Could not sort results by index: {e}")
-                    pass
-                for result in results:
-                    f.write(f"{result[0]} {result[1]}\n")
-        else:
-            for result in results: 
-                print(result)
-
+        os.makedirs("final_ts_reactants", exist_ok=True)
+        for result in results:
+            dir = result[0]
+            ts_file = result[1]
+            reactant_file = result[2]
+            os.system(f"scp {ts_file} final_ts_reactants/{dir}_ts.xyz")
+            os.system(f"scp {reactant_file} final_ts_reactants/{dir}_reac.xyz")

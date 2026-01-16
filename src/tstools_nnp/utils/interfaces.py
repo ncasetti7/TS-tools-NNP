@@ -17,8 +17,6 @@ class AIMNet2ASECalculator(ase.calculators.calculator.Calculator):
         self.model = model
         self.charge = charge
         self.device = next(model.parameters()).device
-        cutoff = max(v.item() for k, v in model.state_dict().items() if k.endswith('aev.rc_s'))
-        self.cutoff = float(cutoff)
         self._t_numbers = None
         self._t_charge = None
 
@@ -57,6 +55,7 @@ class AIMNet2ASECalculator(ase.calculators.calculator.Calculator):
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=ase.calculators.calculator.all_changes):
         super().calculate(atoms, properties, system_changes)
+        self.set_charge(atoms.info['charge'])
         _in = self._make_input()
         do_forces = 'forces' in properties
         _out =  self._eval_model(_in, do_forces)
