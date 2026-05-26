@@ -1,5 +1,6 @@
 import torch
 from pysisyphus.constants import ANG2BOHR, AU2EV
+
 from tstools_nnp.utils.interfaces import BatchCalculator
 
 EV2AU = 1 / AU2EV
@@ -16,8 +17,8 @@ CONV_THRESHS = {
     # Dummy thresholds
     "never": (2.0e-6, 1.0e-6, 6.0e-6, 4.0e-6),
     # IRC thresholds delta_energy, rms_force, unused, unused
-    "irc": (1.0e-6, 1.0e-3, 1.0e-3, 1.0e-3)
-    }
+    "irc": (1.0e-6, 1.0e-3, 1.0e-3, 1.0e-3),
+}
 
 CONV_THRESHS_FORCES = {
     #              max_force, rms_force
@@ -30,24 +31,21 @@ CONV_THRESHS_FORCES = {
     # Dummy thresholds
     "never": (2.0e-6, 1.0e-6),
     # IRC thresholds delta_energy, rms_force, unused, unused
-    "irc": (1.0e-6, 1.0e-3)
-    }
+    "irc": (1.0e-6, 1.0e-3),
+}
 
 
-class GeometryCalculation():
-
-    def __init__(self, 
-                 calc: BatchCalculator,
-                 conv_thresh: str = "gau_vtight", 
-                 max_cycles: int = 300,
-                 hess_update: str = "bofill") -> None:
+class GeometryCalculation:
+    def __init__(
+        self, calc: BatchCalculator, conv_thresh: str = "gau_vtight", max_cycles: int = 300, hess_update: str = "bofill"
+    ) -> None:
         self.calc = calc
         self.conv_thresh = conv_thresh
         self.max_cycles = max_cycles
         self.hess_update_func = hess_update
 
     def calc_energies(self, coord, numbers, charges) -> torch.Tensor:
-        '''
+        """
         Calculate energies for a batch of geometries
 
         Args:
@@ -57,12 +55,12 @@ class GeometryCalculation():
 
         Returns:
         torch.Tensor: energies
-        '''
+        """
         e = self.calc(coord, numbers, charges)
         return (e.detach() * EV2AU).to(torch.double)
-    
+
     def calc_energies_forces(self, coord, numbers, charges) -> torch.Tensor:
-        '''
+        """
         Calculate energies and forces for a batch of geometries
 
         Args:
@@ -73,14 +71,14 @@ class GeometryCalculation():
         Returns:
         torch.Tensor: energies
         torch.Tensor: forces
-        '''
+        """
         e, f = self.calc.get_energies_forces(coord, numbers, charges)
         energies = (e.detach() * EV2AU).to(torch.double)
         forces = (f.detach().flatten(-2, -1) * (EV2AU / ANG2BOHR)).to(torch.double)
         return energies, forces
-    
+
     def calc_energies_forces_hessians(self, coord, numbers, charges) -> torch.Tensor:
-        '''
+        """
         Calculate energies, forces and hessians for a batch of geometries
 
         Args:
@@ -92,16 +90,16 @@ class GeometryCalculation():
         torch.Tensor: energies
         torch.Tensor: forces
         torch.Tensor: hessians
-        '''
+        """
         e, f, h = self.calc.get_energies_forces_hessians(coord, numbers, charges)
         energies = (e.detach() * EV2AU).to(torch.double)
         forces = (f.detach().flatten(-2, -1) * (EV2AU / ANG2BOHR)).to(torch.double)
         hessians = (h.detach().flatten(-2, -1) * (EV2AU / ANG2BOHR / ANG2BOHR)).to(torch.double)
 
         return energies, forces, hessians
-    
+
     def check_convergence(self, step, forces):
-        '''
+        """
         Check if the optimization has converged
 
         Args:
@@ -110,19 +108,15 @@ class GeometryCalculation():
 
         Returns:
         torch.Tensor: mask of the geometries that have converged
-        '''
-        rms_force = torch.sqrt((forces ** 2).mean((1)))
-        rms_step = torch.sqrt((step ** 2).mean((1)))
+        """
+        rms_force = torch.sqrt((forces**2).mean((1)))
         max_force = forces.abs().max((1)).values
-        max_step = step.abs().max((1)).values
-        #conv_thresh = torch.tensor(CONV_THRESHS[self.conv_thresh], device=forces.device)
         conv_thresh = torch.tensor(CONV_THRESHS_FORCES[self.conv_thresh], device=forces.device)
         print(max_force, rms_force)
-        #print(max_force, rms_force, max_step, rms_step)
-        #conv = torch.stack([max_force, rms_force, max_step, rms_step], dim=-1) < conv_thresh
         conv = torch.stack([max_force, rms_force], dim=-1) < conv_thresh
         return conv.all(-1)
-    
+
+
 class ConstrainedCalculator(BatchCalculator):
     def __init__(self, calc, constraints):
         self.calc = calc
@@ -133,22 +127,23 @@ class ConstrainedCalculator(BatchCalculator):
         for constraint in self.constraints:
             e += constraint.get_energy(coord, numbers, charges)
         return e
-    
+
     def get_energies_forces(self, coord, numbers, charges):
-        e, f  = self.calc.get_energies_forces(coord, numbers, charges)
+        e, f = self.calc.get_energies_forces(coord, numbers, charges)
         for constraint in self.constraints:
             e += constraint.get_energy(coord, numbers, charges)
             f += constraint.get_force(coord, numbers, charges)
         return e, f
-    
+
     def get_energies_forces_hessians(self, coord, numbers, charges):
         e, f, h = self.calc.get_energies_forces_hessians(coord, numbers, charges)
         for constraint in self.constraints:
             e += constraint.get_energy(coord, numbers, charges)
             f += constraint.get_force(coord, numbers, charges)
         return e, f, h
-    
-class Constraint():
+
+
+class Constraint:
     def __init__(self):
         pass
 
@@ -157,7 +152,8 @@ class Constraint():
 
     def get_force(self, coord, numbers, charges):
         pass
-    
+
+
 class HookeanConstraint(Constraint):
     def __init__(self, k, r0, b, a1, a2):
         super().__init__()
@@ -172,7 +168,7 @@ class HookeanConstraint(Constraint):
         # Zero out d if it's less than r0
         d = torch.where(d.norm(dim=-1) < self.r0, torch.zeros_like(d), d)
         return 0.5 * self.k * (d * d).sum(-1).sum(-1)
-    
+
     def get_force(self, coord, numbers, charges):
         f = torch.zeros_like(coord)
         d = coord[self.b, self.a1] - coord[self.b, self.a2]
@@ -181,21 +177,22 @@ class HookeanConstraint(Constraint):
         f[self.b, self.a1] = -self.k * d
         f[self.b, self.a2] = self.k * d
         return f
-    
 
-class FIRE():
 
-    def __init__(self, 
-                 calculation: GeometryCalculation,
-                 dt: torch.double = 0.1,
-                 dt_max: torch.double = 1,
-                 N_acc: torch.int = 2,
-                 f_inc: torch.double = 1.1,
-                 f_acc: torch.double = 0.99,
-                 f_dec: torch.double = 0.5,
-                 n_reset: torch.int = 0,
-                 a_start: torch.double  = 0.1,
-                 max_step: torch.double = 0.4) -> None:
+class FIRE:
+    def __init__(
+        self,
+        calculation: GeometryCalculation,
+        dt: torch.double = 0.1,
+        dt_max: torch.double = 1,
+        N_acc: torch.int = 2,
+        f_inc: torch.double = 1.1,
+        f_acc: torch.double = 0.99,
+        f_dec: torch.double = 0.5,
+        n_reset: torch.int = 0,
+        a_start: torch.double = 0.1,
+        max_step: torch.double = 0.4,
+    ) -> None:
         self.calculation = calculation
         self.dt = dt
         self.dt_max = dt_max
@@ -208,9 +205,9 @@ class FIRE():
         self.max_step = max_step
         self.energies = []
         self.forces = []
-    
+
     def run(self, coord, numbers, charges, frags=None, collision_energy=None, dump_traj=False):
-        '''
+        """
         Run FIRE optimization
 
         Args:
@@ -221,7 +218,7 @@ class FIRE():
 
         Returns:
         torch.Tensor: coordinates of the optimized geometry (B, N, 3)
-        '''
+        """
         # Set values for optimization
         self.batch_size = coord.size(0)
         self.n_reset = torch.zeros(coord.shape[0], dtype=torch.long, device=coord.device)
@@ -240,7 +237,9 @@ class FIRE():
             # Calculate the step
             step = self.calc_step(f)
             # Check for convergence
-            new_convergence_mask = self.calculation.check_convergence(step.flatten(-2, -1), f.reshape(self.batch_size, -1))
+            new_convergence_mask = self.calculation.check_convergence(
+                step.flatten(-2, -1), f.reshape(self.batch_size, -1)
+            )
             # Merge the convergence masks
             convergence_mask = convergence_mask + new_convergence_mask
             if torch.all(convergence_mask):
@@ -257,7 +256,7 @@ class FIRE():
         return coord
 
     def calc_step(self, forces):
-        '''
+        """
         Run a single step of FIRE optimization
 
         Args:
@@ -266,20 +265,20 @@ class FIRE():
 
         Returns:
         torch.Tensor: coordinates of the step (B, N, 3)
-        '''
+        """
         forces = forces.reshape(self.batch_size, -1, 3)
         vf = (forces * self.v).flatten(-2, -1).sum(-1)
 
         w_vf = vf > 0.0
-        
+
         if w_vf.all():
             a = self.a.unsqueeze(-1).unsqueeze(-1)
             v = self.v
             f = forces
-            self.v = (1.0 - a) * v + a * v.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(
-                -1).unsqueeze(-1) * f / f.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(
-                -1)
-            self.v = torch.squeeze(self.v, dim=(1,2))
+            self.v = (1.0 - a) * v + a * v.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(
+                -1
+            ) * f / f.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(-1)
+            self.v = torch.squeeze(self.v, dim=(1, 2))
             w_N = self.n_reset > self.N_acc
             self.dt[w_N] = (self.dt[w_N] * self.f_inc).clamp(max=self.dt_max)
             self.n_reset += 1
@@ -287,16 +286,16 @@ class FIRE():
             a = self.a[w_vf].unsqueeze(-1).unsqueeze(-1)
             v = self.v[w_vf]
             f = forces[w_vf]
-            self.v[w_vf] = (1.0 - a) * v + a * v.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(
-                -1).unsqueeze(-1) * f / f.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(
-                -1)
+            self.v[w_vf] = (1.0 - a) * v + a * v.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(
+                -1
+            ) * f / f.flatten(-2, -1).norm(p=2, dim=-1).unsqueeze(-1).unsqueeze(-1)
             w_N = self.n_reset > self.N_acc
             w_vfN = w_vf & w_N
             self.dt[w_vfN] = (self.dt[w_vfN] * self.f_inc).clamp(max=self.dt_max)
             self.a[w_vfN] *= self.f_acc
             self.n_reset[w_vfN] += 1
         w_vf = ~w_vf
-        
+
         if w_vf.all():
             self.v[:] = 0.0
             self.a[:] = torch.tensor(self.a_start, device=self.a.device, dtype=torch.double)

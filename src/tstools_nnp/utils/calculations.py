@@ -1,20 +1,21 @@
 """This module is for running compuational chemistry calculations with AIMNet2ASECalculator"""
 
-import os
 import contextlib
-from rdkit import Chem
-from rdkit.Geometry import Point3D
-from sella import Sella, IRC
-from ase.io import read, write
-from ase.optimize import BFGS, FIRE
-from ase.constraints import FixAtoms, Hookean
+import os
+
+from ase.io import read
 from ase.io.trajectory import Trajectory
+from ase.optimize import BFGS, FIRE
+from rdkit import Chem
+from sella import IRC, Sella
+
 from tstools_nnp.utils.interfaces import AIMNet2ASECalculator
 
 EV_TO_KCAL = 23.0605
 
+
 def optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
-    '''
+    """
     Optimize a geometry with pysisyphus
 
     Args:
@@ -26,8 +27,8 @@ def optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, verbose=Fa
 
     Returns:
         atoms (ase.Atoms): optimized geometry
-    '''
-    if type(calc) == AIMNet2ASECalculator:
+    """
+    if isinstance(calc, AIMNet2ASECalculator):
         calc.do_reset()
     atoms.calc = calc
     # Create an optimizer object
@@ -36,13 +37,14 @@ def optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, verbose=Fa
     if verbose:
         opt.run(fmax=convergence, steps=max_cycles)
     else:
-        with open(os.devnull, "w", encoding='utf-8') as f, contextlib.redirect_stdout(f):
+        with open(os.devnull, "w", encoding="utf-8") as f, contextlib.redirect_stdout(f):
             opt.run(fmax=convergence, steps=max_cycles)
 
     return atoms
 
+
 def ts_optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, calc_hessian=False, verbose=False):
-    '''
+    """
     Optimize a geometry with pysisyphus
 
     Args:
@@ -55,15 +57,15 @@ def ts_optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, calc_he
 
     Returns:
         atoms (ase.Atoms): optimized geometry
-    '''
-    if type(calc) == AIMNet2ASECalculator:
+    """
+    if isinstance(calc, AIMNet2ASECalculator):
         calc.do_reset()
     atoms.calc = calc
     # Create a Sella object
     if verbose:
-        logfile="-"
+        logfile = "-"
     else:
-        logfile=None
+        logfile = None
     if calc_hessian:
         opt = Sella(atoms, logfile=logfile, hessian_function=calc.get_hessian)
     else:
@@ -73,11 +75,12 @@ def ts_optimize_geometry(atoms, calc, max_cycles=1000, convergence=0.01, calc_he
     if opt.converged is False:
         print("Sella optimization did not converge")
         return None
-    
+
     return atoms
 
+
 def calc_irc(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
-    '''
+    """
     Run an IRC calculation with pysisyphus
 
     Args:
@@ -90,21 +93,8 @@ def calc_irc(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
     Returns:
         first (ase.Atoms): first geometry along the IRC
         last (ase.Atoms): last geometry along the IRC
-    '''
-    '''
-    Run an IRC calculation with pysisyphus
-
-    Args:
-        atoms: ase.Atoms, input atoms object
-        output_xyz: str, output XYZ file
-        ase_calc: ase.calculator
-        max_cycles: int, maximum number of optimization cycles
-        convergence: float, convergence criterion for forces
-
-    Returns:
-        
-    '''
-    if type(calc) == AIMNet2ASECalculator:
+    """
+    if isinstance(calc, AIMNet2ASECalculator):
         calc.do_reset()
     atoms.calc = calc
     # Create an IRC object
@@ -112,7 +102,7 @@ def calc_irc(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
         irc = IRC(atoms, trajectory="temp.traj", logfile="-")
     else:
         irc = IRC(atoms, trajectory="temp.traj", logfile=None)
-    
+
     # Run the IRC calculation
     irc.run(direction="forward", steps=max_cycles, fmax=convergence)
     irc.run(direction="reverse", steps=max_cycles, fmax=convergence)
@@ -120,7 +110,7 @@ def calc_irc(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
     if irc.converged is False:
         print("IRC calculation did not converge")
         return None, None
-    
+
     # Convert the trajectory to XYZ format
     reader = Trajectory("temp.traj")
     switch_index = None
@@ -140,6 +130,7 @@ def calc_irc(atoms, calc, max_cycles=1000, convergence=0.01, verbose=False):
     os.remove("temp.traj")
     return reader[switch_index], reader[-1]
 
+
 def get_energy(mol, cid, calc):
     """
     Calculate the energy of a molecule using ASE.
@@ -152,14 +143,15 @@ def get_energy(mol, cid, calc):
     Returns:
         energy (float): Energy of the molecule.
     """
-    Chem.MolToXYZFile(mol, f"temp.xyz", cid)
-    ase_atoms = read(f"temp.xyz")
+    Chem.MolToXYZFile(mol, "temp.xyz", cid)
+    ase_atoms = read("temp.xyz")
     # Set up the calculator
     ase_atoms.calc = calc
     energy = ase_atoms.get_potential_energy()
     energy = energy * EV_TO_KCAL
     os.remove("temp.xyz")
     return energy
+
 
 def constrained_optimization(atoms, constraints, calc, fmax=0.05, max_cycles=1000):
     """
@@ -173,17 +165,18 @@ def constrained_optimization(atoms, constraints, calc, fmax=0.05, max_cycles=100
     Returns:
         atoms (ase.Atoms): Optimized ASE atoms object.
     """
-    if type(calc) == AIMNet2ASECalculator:
+    if isinstance(calc, AIMNet2ASECalculator):
         calc.do_reset()
     atoms.calc = calc
     if len(constraints) > 0:
         atoms.set_constraint(constraints)
     # Perform optimization
-    with open(os.devnull, "w", encoding='utf-8') as f, contextlib.redirect_stdout(f):
-        optimizer = BFGS(atoms, trajectory='opt.traj')
+    with open(os.devnull, "w", encoding="utf-8") as f, contextlib.redirect_stdout(f):
+        optimizer = BFGS(atoms, trajectory="opt.traj")
         optimizer.run(fmax=fmax, steps=max_cycles)
 
-    return Trajectory('opt.traj')
+    return Trajectory("opt.traj")
+
 
 def constrained_optimization_geom(atoms, constraints, calc, fmax=0.05, max_cycles=1000):
     """
@@ -203,7 +196,7 @@ def constrained_optimization_geom(atoms, constraints, calc, fmax=0.05, max_cycle
     atoms.set_constraint(constraints)
 
     # Perform optimization
-    with open(os.devnull, "w", encoding='utf-8') as f, contextlib.redirect_stdout(f):
+    with open(os.devnull, "w", encoding="utf-8") as f, contextlib.redirect_stdout(f):
         optimizer = BFGS(atoms)
         optimizer.run(fmax=fmax, steps=max_cycles)
 

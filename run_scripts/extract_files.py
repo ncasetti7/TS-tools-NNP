@@ -1,11 +1,14 @@
-import os
 import argparse
-import yaml
+import os
+
 import torch
+import yaml
 from ase.io import read
-from fairchem.core.units.mlip_unit import load_predict_unit
 from fairchem.core import FAIRChemCalculator
+from fairchem.core.units.mlip_unit import load_predict_unit
+
 from tstools_nnp.utils import interfaces
+
 
 def get_args():
     """
@@ -15,28 +18,29 @@ def get_args():
     - argparse.Namespace: Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--defaults-file', action='store', type=str, default='run_scripts/default_arguments.yaml')
-    parser.add_argument('--target-dir', action='store', type=str, default='work_dir')
-    parser.add_argument('--model-path', action='store', type=str, required=True)
-    parser.add_argument('--save-results', action='store_true')
+    parser.add_argument("--defaults-file", action="store", type=str, default="run_scripts/default_arguments.yaml")
+    parser.add_argument("--target-dir", action="store", type=str, default="work_dir")
+    parser.add_argument("--model-path", action="store", type=str, required=True)
+    parser.add_argument("--save-results", action="store_true")
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     # Get arguments
     args = get_args()
-    with open(args.defaults_file, 'r') as f:
+    with open(args.defaults_file, "r") as f:
         default_args = yaml.safe_load(f)
 
     # Load the model
-    if default_args['model_type'] == "OMol":
+    if default_args["model_type"] == "OMol":
         predictor = load_predict_unit(args.model_path, device="cpu")
         calc = FAIRChemCalculator(predictor, task_name="omol")
-    elif default_args['model_type'] == "AIMNET":
+    elif default_args["model_type"] == "AIMNET":
         model = torch.jit.load(args.model_path, map_location="cpu")
         calc = interfaces.AIMNet2ASECalculator(model)
     else:
         raise NotImplementedError(f"No model type {default_args['model_type']}!")
-    
+
     if not os.path.isdir(args.target_dir):
         print(f"No results folder named {args.target_dir}!")
     else:
@@ -44,7 +48,7 @@ if __name__ == "__main__":
         results = []
         for dir in os.listdir("."):
             if os.path.isdir(dir):
-                if default_args['model_type'] == "AIMNET":
+                if default_args["model_type"] == "AIMNET":
                     calc.do_reset()
                 min_barrier = 9999999999
                 min_ts_file = None

@@ -1,9 +1,12 @@
 import os
+
 import ase
-from ase.io import read, write
+from ase.io import write
+
 from tstools_nnp.utils import calculations, cheminformatics
 
-class TSOptimizer():
+
+class TSOptimizer:
     def __init__(self, path_generator, reactive_complex_factors, attempts, save_paths, results_directory, calc_hess):
         self.path_generator = path_generator
         self.reactive_complex_factors = reactive_complex_factors
@@ -17,17 +20,19 @@ class TSOptimizer():
         success = False
         for ts_guess in ts_guesses:
             ts_guess_atoms = ase.Atoms(symbols=atomic_symbols, positions=ts_guess)
-            ts_guess_atoms.info['charge'] = self.path_generator.charge
-            ts_guess_atoms.info['spin'] = self.path_generator.multiplicity
+            ts_guess_atoms.info["charge"] = self.path_generator.charge
+            ts_guess_atoms.info["spin"] = self.path_generator.multiplicity
             print(f"Reaction {self.path_generator.rxn_id}: TS Optimization")
             try:
-                ts_atoms = calculations.ts_optimize_geometry(ts_guess_atoms, self.path_generator.calc, calc_hessian=self.calc_hess)
+                ts_atoms = calculations.ts_optimize_geometry(
+                    ts_guess_atoms, self.path_generator.calc, calc_hessian=self.calc_hess
+                )
             except Exception as e:
                 print(f"TS optimization failed: {e}")
                 ts_atoms = None
             if ts_atoms is None:
                 continue
-            write(f"temp_ts.xyz", ts_atoms, format='xyz')
+            write("temp_ts.xyz", ts_atoms, format="xyz")
             print(f"Reaction {self.path_generator.rxn_id}: IRC")
             try:
                 first, last = calculations.calc_irc(ts_atoms, self.path_generator.calc)
@@ -36,20 +41,25 @@ class TSOptimizer():
                 continue
             if first is None:
                 continue
-            if cheminformatics.check_identity_both(first, last, self.path_generator.reactant_rdkit_mol, self.path_generator.product_rdkit_mol, self.path_generator.charge, self.path_generator.multiplicity):
+            pg = self.path_generator
+            if cheminformatics.check_identity_both(
+                first, last, pg.reactant_rdkit_mol, pg.product_rdkit_mol, pg.charge, pg.multiplicity
+            ):
                 print(f"Reaction {self.path_generator.rxn_id}: Found valid TS!")
                 optimized_reactant = calculations.optimize_geometry(first, self.path_generator.calc)
                 optimized_product = calculations.optimize_geometry(last, self.path_generator.calc)
-                write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
-                write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
+                write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format="xyz")
+                write(f"rp_geometries/product_{index}.xyz", optimized_product, format="xyz")
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")
                 success = True
-            elif cheminformatics.check_identity_both(last, first, self.path_generator.reactant_rdkit_mol, self.path_generator.product_rdkit_mol, self.path_generator.charge, self.path_generator.multiplicity):
+            elif cheminformatics.check_identity_both(
+                last, first, pg.reactant_rdkit_mol, pg.product_rdkit_mol, pg.charge, pg.multiplicity
+            ):
                 print(f"Reaction {self.path_generator.rxn_id}: Found valid TS!")
                 optimized_reactant = calculations.optimize_geometry(last, self.path_generator.calc)
                 optimized_product = calculations.optimize_geometry(first, self.path_generator.calc)
-                write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format='xyz')
-                write(f"rp_geometries/product_{index}.xyz", optimized_product, format='xyz')
+                write(f"rp_geometries/reactant_{index}.xyz", optimized_reactant, format="xyz")
+                write(f"rp_geometries/product_{index}.xyz", optimized_product, format="xyz")
                 os.system(f"mv temp_ts.xyz final_ts_guess/ts_guess_{index}.xyz")
                 success = True
             else:
@@ -77,7 +87,11 @@ class TSOptimizer():
                     break
             if energies is not None:
                 if self.save_paths:
-                    cheminformatics.path_to_xyz_file(paths, self.path_generator.atomic_symbols, f"path_dir/path_{reactive_complex_factor}_{index}.xyz")
+                    cheminformatics.path_to_xyz_file(
+                        paths,
+                        self.path_generator.atomic_symbols,
+                        f"path_dir/path_{reactive_complex_factor}_{index}.xyz",
+                    )
                 if self.check_ts_guesses(energies, paths, self.path_generator.atomic_symbols, index):
                     return self.path_generator.rxn_id
                 index += 1
@@ -102,7 +116,7 @@ class TSOptimizer():
         ts_guesses = []
         energies = []
         for index in indices_local_maxima:
-            #ts_guess_file, _ = validate_ts_guess(path_xyz_files[index], self.reaction_dir, self.freq_cut_off, charge)
+            # ts_guess_file, _ = validate_ts_guess(path_xyz_files[index], self.reaction_dir, self.freq_cut_off, charge)
             ts_guess = trajectory[index]
             energies.append(true_energies[index])
             ts_guesses.append(ts_guess)
@@ -112,7 +126,7 @@ class TSOptimizer():
         ranked_guess_files = [item[0] for item in sorted_guess_dict]
 
         return ranked_guess_files
-    
+
     def find_local_max_indices(self, numbers):
         """
         Find indices of local maxima in a list of numbers.
@@ -128,4 +142,3 @@ class TSOptimizer():
             if numbers[i] > numbers[i - 1] and numbers[i] > numbers[i + 1]:
                 local_max_indices.append(i)
         return local_max_indices
-    

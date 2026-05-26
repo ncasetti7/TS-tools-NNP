@@ -1,10 +1,10 @@
-model_type: OMol # Options: AIMNET, OMol
+model_type: AIMNET # Options: AIMNET, OMol
 reactive_complex_factor_list_intramolecular: [1.3, 1.2, 1.8, 0] # Reactive complex factors to try for intramolecular reactions
 reactive_complex_factor_list_intermolecular: [2.5, 1.8, 2.8, 1.3] # Reactive complex factors to try for intermolecular reactions
 attempts: 3 # Number of times to try each reactive complex factor
 batch: False # Whether to use batch processing, recommended if you have a GPU
 batch_size: 10 # Number of structures to process in a batch (this is a maximum, actual batch size may be smaller))
 save_paths: True # Whether to save the reactive pathways
-num_workers: 4 # Number of CPU workers to use for data loading and processing (only used if batch is False, setting to 0 will allocate all visible CPUs)
+num_workers: 5 # Number of CPU workers to use for data loading and processing (only used if batch is False, setting to 0 will allocate all visible CPUs)
 use_gpu: True # Whether to use GPU acceleration if available
 calc_hess: True # Whether to calculate Hessians for TS optimizations and IRC calculations (not available for OMol)

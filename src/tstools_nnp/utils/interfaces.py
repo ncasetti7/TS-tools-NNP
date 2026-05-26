@@ -1,16 +1,17 @@
+import ase.calculators.calculator
 import torch
 from fairchem.core.datasets.atomic_data import AtomicData, atomicdata_list_to_batch
 from fairchem.core.units.mlip_unit import load_predict_unit
-import ase.calculators.calculator
+
 
 class AIMNet2ASECalculator(ase.calculators.calculator.Calculator):
-    """ ASE calculator for AIMNet2 model
+    """ASE calculator for AIMNet2 model
     Arguments:
         model (:class:`torch.nn.Module`): AIMNet2 model
         charge (int or float): molecular charge.  Default: 0
     """
 
-    implemented_properties = ['energy', 'forces', 'free_energy', 'charges']
+    implemented_properties = ["energy", "forces", "free_energy", "charges"]
 
     def __init__(self, model, charge=0):
         super().__init__()
@@ -40,49 +41,47 @@ class AIMNet2ASECalculator(ase.calculators.calculator.Calculator):
         prev = torch.is_grad_enabled()
         torch._C._set_grad_enabled(forces)
         if forces:
-            d['coord'].requires_grad_(True)
+            d["coord"].requires_grad_(True)
         _out = self.model(d)
-        ret = dict(energy=_out['energy'].item(), charges=_out['charges'].detach()[0].cpu().numpy())
+        ret = dict(energy=_out["energy"].item(), charges=_out["charges"].detach()[0].cpu().numpy())
         if forces:
-            if 'forces' in _out:
-                f = _out['forces'][0]
+            if "forces" in _out:
+                f = _out["forces"][0]
             else:
-                f = - torch.autograd.grad(_out['energy'], d['coord'])[0][0]
-            ret['forces'] = f.detach().cpu().numpy()
+                f = -torch.autograd.grad(_out["energy"], d["coord"])[0][0]
+            ret["forces"] = f.detach().cpu().numpy()
         torch._C._set_grad_enabled(prev)
         return ret
 
-    def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=ase.calculators.calculator.all_changes):
+    def calculate(self, atoms=None, properties=["energy"], system_changes=ase.calculators.calculator.all_changes):
         super().calculate(atoms, properties, system_changes)
-        self.set_charge(atoms.info['charge'])
+        self.set_charge(atoms.info["charge"])
         _in = self._make_input()
-        do_forces = 'forces' in properties
-        _out =  self._eval_model(_in, do_forces)
+        do_forces = "forces" in properties
+        _out = self._eval_model(_in, do_forces)
 
-        self.results['energy'] = _out['energy']
-        self.results['charges'] = _out['charges']
+        self.results["energy"] = _out["energy"]
+        self.results["charges"] = _out["charges"]
         if do_forces:
-            self.results['forces'] = _out['forces']
-    
-    def get_hessian(self, atoms, properties=['energy'], system_changes=ase.calculators.calculator.all_changes):
-        """ Calculate the Hessian matrix of the system.
-        """
+            self.results["forces"] = _out["forces"]
+
+    def get_hessian(self, atoms, properties=["energy"], system_changes=ase.calculators.calculator.all_changes):
+        """Calculate the Hessian matrix of the system."""
         super().calculate(atoms, properties, system_changes)
         _in = self._make_input()
         with torch.jit.optimized_execution(False):
-            _in['coord'].requires_grad_(True)
+            _in["coord"].requires_grad_(True)
             _out = self.model(_in)
-            e = _out['energy']
-            f = -_get_derivatives_not_none(_in['coord'], e, create_graph=True)
-            h = - torch.stack([
-            _get_derivatives_not_none(_in['coord'], _f, retain_graph=True)[0]
-                    for _f in f.flatten().unbind()
-                    ])
+            e = _out["energy"]
+            f = -_get_derivatives_not_none(_in["coord"], e, create_graph=True)
+            h = -torch.stack(
+                [_get_derivatives_not_none(_in["coord"], _f, retain_graph=True)[0] for _f in f.flatten().unbind()]
+            )
         hessian = h.flatten(-2, -1).to(torch.double).cpu().numpy()
         return hessian
 
-class BatchCalculator():
+
+class BatchCalculator:
     def __init__(self):
         pass
 
@@ -95,6 +94,7 @@ class BatchCalculator():
     def get_energies_forces_hessians(self, coord, numbers, charges):
         pass
 
+
 class AIMNET(torch.nn.Module, BatchCalculator):
     def __init__(self, model, device) -> None:
         super().__init__()
@@ -103,33 +103,33 @@ class AIMNET(torch.nn.Module, BatchCalculator):
 
     def forward(self, coord, numbers, charges):
         out = self.model(dict(coord=coord, numbers=numbers, charge=charges))
-        return out['energy']
-    
+        return out["energy"]
+
     def get_energies_forces(self, coord, numbers, charges):
         in_dict = dict(coord=coord, numbers=numbers, charge=charges)
-        in_dict['coord'].requires_grad_(True)
+        in_dict["coord"].requires_grad_(True)
         with torch.jit.optimized_execution(False):
             out = self.model(in_dict)
-            e = out['energy']
-            f = - torch.autograd.grad([e.sum()], [in_dict['coord']])[0]
+            e = out["energy"]
+            f = -torch.autograd.grad([e.sum()], [in_dict["coord"]])[0]
         print(f.shape)
         raise ValueError
         return e, f
-    
+
     def get_energies_forces_hessians(self, coord, numbers, charges):
         in_dict = dict(coord=coord, numbers=numbers, charge=charges)
-        in_dict['coord'].requires_grad_(True)
+        in_dict["coord"].requires_grad_(True)
         with torch.jit.optimized_execution(False):
             out = self.model(in_dict)
-            e = out['energy']
-            g =  _get_derivatives_not_none(in_dict['coord'], e, create_graph=True)
+            e = out["energy"]
+            g = _get_derivatives_not_none(in_dict["coord"], e, create_graph=True)
             f = -g
             a = [
-            _get_derivatives_not_none(in_dict['coord'], _f, retain_graph=True)
-                    for _f in f.flatten(-2, -1).unbind(1)
-                        ]
-            h = - torch.stack(a, dim=1)
+                _get_derivatives_not_none(in_dict["coord"], _f, retain_graph=True) for _f in f.flatten(-2, -1).unbind(1)
+            ]
+            h = -torch.stack(a, dim=1)
         return e, f, h
+
 
 class Fairchem(BatchCalculator):
     def __init__(self, model_file) -> None:
@@ -137,8 +137,8 @@ class Fairchem(BatchCalculator):
         self.model = load_predict_unit(model_file)
 
     def unpad_coords_numbers(self, coords, numbers):
-        unpadded_coords = [coord[coord.sum(-1)!=0] for coord in coords]
-        unpadded_numbers = [num[:len(coord)] for num, coord in zip(numbers, unpadded_coords)]
+        unpadded_coords = [coord[coord.sum(-1) != 0] for coord in coords]
+        unpadded_numbers = [num[: len(coord)] for num, coord in zip(numbers, unpadded_coords)]
         return unpadded_coords, unpadded_numbers
 
     def prep_input(self, coord, numbers, charges):
@@ -156,7 +156,7 @@ class Fairchem(BatchCalculator):
 
         # Make a list of atomic data objects for each geometry
         data_list = []
-        
+
         for i in range(batch_size):
             natoms = coord[i].shape[0] * torch.ones((1,), dtype=torch.long)
             data = AtomicData(
@@ -187,17 +187,17 @@ class Fairchem(BatchCalculator):
     def get_energies(self, coord, numbers, charges):
         data = self.prep_input(coord, numbers, charges)
         out = self.model.predict(data)
-        return out['energy']
+        return out["energy"]
 
     def get_energies_forces(self, coord, numbers, charges):
         data = self.prep_input(coord, numbers, charges)
         with torch.jit.optimized_execution(False):
             out = self.model.predict(data)
-            e = out['energy']
-            f = out['forces']
+            e = out["energy"]
+            f = out["forces"]
         f = self.repad_forces(f, coord)
         return e, f
-    
+
     def repad_forces(self, forces, coord):
         repadded_forces = torch.zeros((len(coord), coord.shape[1], 3), device=forces.device)
         force_index = 0

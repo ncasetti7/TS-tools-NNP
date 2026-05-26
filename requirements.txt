@@ -1,7 +1,0 @@
-torch
-ase
-pysisyphus
-scipy
-numpy
-sella
-fairchem-core

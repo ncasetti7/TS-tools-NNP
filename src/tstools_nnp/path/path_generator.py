@@ -1,18 +1,59 @@
 import random
 from itertools import product
-from pysisyphus.constants import ANG2BOHR
-from scipy.spatial import distance_matrix
-from rdkit import Chem
+
 import ase
 from ase.constraints import Hookean
+from pysisyphus.constants import ANG2BOHR
+from rdkit import Chem
+from scipy.spatial import distance_matrix
+
 from tstools_nnp.utils import calculations, cheminformatics
 from tstools_nnp.utils.interfaces import AIMNet2ASECalculator
 
-metal_list = ['Al', 'Sb', 'Ag', 'As', 'Ba', 'Be', 'Bi', 'Cd', 'Ca', 'Cr', 'Co', 'Cu', 'Au', 'Fe', 
-              'Pb', 'Mg', 'Mn', 'Hg', 'Mo', 'Ni', 'Pd', 'Pt', 'K', 'Rh', 'Rb', 'Ru', 'Sc', 'Ag', 
-              'Na', 'Sr', 'Ta', 'Tl', 'Th', 'Ti', 'U', 'V', 'Y', 'Zn', 'Zr']
+metal_list = [
+    "Al",
+    "Sb",
+    "Ag",
+    "As",
+    "Ba",
+    "Be",
+    "Bi",
+    "Cd",
+    "Ca",
+    "Cr",
+    "Co",
+    "Cu",
+    "Au",
+    "Fe",
+    "Pb",
+    "Mg",
+    "Mn",
+    "Hg",
+    "Mo",
+    "Ni",
+    "Pd",
+    "Pt",
+    "K",
+    "Rh",
+    "Rb",
+    "Ru",
+    "Sc",
+    "Ag",
+    "Na",
+    "Sr",
+    "Ta",
+    "Tl",
+    "Th",
+    "Ti",
+    "U",
+    "V",
+    "Y",
+    "Zn",
+    "Zr",
+]
 
-class PathGenerator():
+
+class PathGenerator:
     # Constants
     FC_CRUDE_LOWER_BOUND = 0.1
     FC_CRUDE_UPPER_BOUND = 4.0
@@ -39,13 +80,12 @@ class PathGenerator():
         "reactive_optimization": "Reactive Optimization",
         "reaction_path": "Reaction Path Optimization",
         "completed": "Completed",
-        "failed": "Failed"
+        "failed": "Failed",
     }
 
     CONVERSION_FACTOR = 97.1738
 
-    def __init__(self, rxn_id, reaction_smiles, calc,
-                 reactive_complex_factor=2.0):
+    def __init__(self, rxn_id, reaction_smiles, calc, reactive_complex_factor=2.0):
         self.rxn_id = rxn_id
         self.reaction_smiles = reaction_smiles
         self.calc = calc
@@ -92,45 +132,44 @@ class PathGenerator():
         else:
             print(f"Path optimization for reaction {self.rxn_id} failed.")
             return [], [], []
-    
+
     def initialize_optimization(self):
         opt_dict = {}
         if self.opt_state == self.OPT_STATES["failed"] or self.opt_state == self.OPT_STATES["completed"]:
             return opt_dict
         if self.opt_state == self.OPT_STATES["initial_optimization"]:
-            opt_dict['coords'] = self.set_conformer(prod=True)
-            opt_dict['constraints'] = None
-            opt_dict['fc'] = None
+            opt_dict["coords"] = self.set_conformer(prod=True)
+            opt_dict["constraints"] = None
+            opt_dict["fc"] = None
         elif self.opt_state == self.OPT_STATES["stretched_optimization"]:
-            opt_dict['coords'] = self.set_conformer()
-            opt_dict['constraints'] = self.get_formation_constraints_stretched()
-            opt_dict['fc'] = min(self.fc, self.MAX_FORCE_CONSTANT)
-        elif self.opt_state == self.OPT_STATES["reactive_optimization"] or self.opt_state == self.OPT_STATES["reaction_path"]:
-            opt_dict['coords'] = self.reactive_conformer
-            opt_dict['constraints'] = self.formation_constraints
-            opt_dict['fc'] = self.fc
-        opt_dict['charge'] = self.charge
-        opt_dict['numbers'] = self.numbers
+            opt_dict["coords"] = self.set_conformer()
+            opt_dict["constraints"] = self.get_formation_constraints_stretched()
+            opt_dict["fc"] = min(self.fc, self.MAX_FORCE_CONSTANT)
+        elif self.opt_state in (self.OPT_STATES["reactive_optimization"], self.OPT_STATES["reaction_path"]):
+            opt_dict["coords"] = self.reactive_conformer
+            opt_dict["constraints"] = self.formation_constraints
+            opt_dict["fc"] = self.fc
+        opt_dict["charge"] = self.charge
+        opt_dict["numbers"] = self.numbers
         return opt_dict
 
     def run_optimization(self, opt_dict):
-        atoms = ase.Atoms(symbols=self.atomic_symbols, positions=opt_dict['coords'])
-        atoms.info['charge'] = self.charge
-        atoms.info['spin'] = self.multiplicity
+        atoms = ase.Atoms(symbols=self.atomic_symbols, positions=opt_dict["coords"])
+        atoms.info["charge"] = self.charge
+        atoms.info["spin"] = self.multiplicity
         atoms.calc = self.calc
         constraints = []
-        if opt_dict['constraints'] is not None:
-            for key, val in opt_dict['constraints'].items():
+        if opt_dict["constraints"] is not None:
+            for key, val in opt_dict["constraints"].items():
                 atom1, atom2 = key
                 distance = val
-                constraint = Hookean(a1=atom1, a2=atom2, rt=distance, k=opt_dict['fc']*self.CONVERSION_FACTOR)
+                constraint = Hookean(a1=atom1, a2=atom2, rt=distance, k=opt_dict["fc"] * self.CONVERSION_FACTOR)
                 constraints.append(constraint)
         opt_results = calculations.constrained_optimization(atoms, constraints, self.calc)
         return self.process_trajectory(opt_results)
 
-
     def process_trajectory(self, opt_results):
-        '''
+        """
         Process the trajectory from the optimization results.
 
         Args:
@@ -138,7 +177,7 @@ class PathGenerator():
 
         Returns:
             trajectory: A list of coordinates representing the trajectory.
-        '''
+        """
         trajectory = []
         for atoms in opt_results:
             trajectory.append(atoms.get_positions())
@@ -180,7 +219,7 @@ class PathGenerator():
             if bond in formation_constraints_to_stretch:
                 stretch_factor = random.uniform(
                     PathGenerator.STRETCH_FACTOR_LOWER_BOUND * self.reactive_complex_factor,
-                    PathGenerator.STRETCH_FACTOR_UPPER_BOUND * self.reactive_complex_factor
+                    PathGenerator.STRETCH_FACTOR_UPPER_BOUND * self.reactive_complex_factor,
                 )
                 formation_constraints_stretched[bond] = stretch_factor * original_distance
 
@@ -243,7 +282,7 @@ class PathGenerator():
                 return True
             else:
                 continue
-        
+
         return False
 
     def determine_potential(self, all_coords, constraints, force_constant):
@@ -264,7 +303,7 @@ class PathGenerator():
             dist_matrix = distance_matrix(coords, coords)
             for key, val in constraints.items():
                 actual_distance = dist_matrix[key[0], key[1]] - val
-                potential += force_constant * ANG2BOHR * actual_distance ** 2
+                potential += force_constant * ANG2BOHR * actual_distance**2
             potentials.append(potential)
         return potentials
 
@@ -279,12 +318,12 @@ class PathGenerator():
         - list: List of energies corresponding to each step in the path.
         """
         energies = []
-        if type(self.calc) == AIMNet2ASECalculator:
+        if isinstance(self.calc, AIMNet2ASECalculator):
             self.calc.do_reset()
         for coords in path_coords:
             atoms = ase.Atoms(symbols=self.atomic_symbols, positions=coords)
-            atoms.info['charge'] = self.charge
-            atoms.info['spin'] = self.multiplicity
+            atoms.info["charge"] = self.charge
+            atoms.info["spin"] = self.multiplicity
             atoms.calc = self.calc
             energy = atoms.get_potential_energy() * 23.0609  # Convert eV to kcal/mol
             energies.append(energy)
@@ -292,15 +331,15 @@ class PathGenerator():
 
     def get_optimal_distances(self, coords):
         """
-        Calculate optimal distances for formed bonds in the product 
+        Calculate optimal distances for formed bonds in the product
         (add additional distance constraints if organometallic system).
 
         Returns:
         dict: Dictionary of optimal distances for formed bonds.
         """
         optimal_distances = {}
-        #product_smiles = [smi for smi in self.product_smiles.split('.')]
-        #product_molecules = [Chem.MolFromSmiles(smi, ps) for smi in self.product_smiles.split('.')]
+        # product_smiles = [smi for smi in self.product_smiles.split('.')]
+        # product_molecules = [Chem.MolFromSmiles(smi, ps) for smi in self.product_smiles.split('.')]
         formed_bonds = self.formed_bonds
 
         atoms_involved_in_formed_bonds = []
@@ -313,20 +352,20 @@ class PathGenerator():
 
             idx1, idx2 = self.atom_map_dict[atom_i], self.atom_map_dict[atom_j]
 
-            #mol, mol_dict, smiles = self.get_mol_and_mol_dict(atom_i, atom_j, product_molecules, product_smiles)
+            # mol, mol_dict, smiles = self.get_mol_and_mol_dict(atom_i, atom_j, product_molecules, product_smiles)
             current_bond_length = self.obtain_current_distance(coords, mol_dict[atom_i], mol_dict[atom_j])
- 
 
             optimal_distances[idx1, idx2] = current_bond_length
-            # for metal-containing bonds, add the atoms that involve main group elements to the atoms_involved_in_formed_bonds list
-            #if mol.GetAtomWithIdx(mol_dict[atom_i]).GetSymbol() not in metal_list and \
+            # for metal-containing bonds, add the atoms that involve main group elements
+            # to the atoms_involved_in_formed_bonds list
+            # if mol.GetAtomWithIdx(mol_dict[atom_i]).GetSymbol() not in metal_list and \
             #      mol.GetAtomWithIdx(mol_dict[atom_j]).GetSymbol() in metal_list:
             #    atoms_involved_in_formed_bonds.append(atom_i)
-            #if mol.GetAtomWithIdx(mol_dict[atom_i]).GetSymbol() in metal_list and \
+            # if mol.GetAtomWithIdx(mol_dict[atom_i]).GetSymbol() in metal_list and \
             #      mol.GetAtomWithIdx(mol_dict[atom_j]).GetSymbol() not in metal_list:
             #    atoms_involved_in_formed_bonds.append(atom_j)
 
-        if self.reaction_is_organometallic == True:
+        if self.reaction_is_organometallic:
             for atom_i, atom_j in list(product(atoms_involved_in_formed_bonds, repeat=2)):
                 if (min(atom_i, atom_j), max(atom_i, atom_j)) in self.broken_bonds:
                     idx1, idx2 = self.atom_map_dict[atom_i], self.atom_map_dict[atom_j]
@@ -337,7 +376,7 @@ class PathGenerator():
                     continue
 
         return optimal_distances
-    
+
     def obtain_current_distance(self, coords, atom_i, atom_j):
         """
         Calculate the current distance between two atoms in the molecule.
@@ -352,7 +391,7 @@ class PathGenerator():
 
         Notes:
         - The function internally uses the obtain_dist_matrix method to compute the distance matrix.
-        """  
+        """
         dist_matrix = distance_matrix(coords, coords)
         current_distance = dist_matrix[atom_i, atom_j]
 
@@ -368,18 +407,18 @@ class PathGenerator():
         elif self.opt_state == self.OPT_STATES["stretched_optimization"]:
             # Set the reactive conformer and determine whether we are screening fc's or checking the reaction path
             self.reactive_conformer = trajectory[-1]
-            #print(self.formation_constraints) 
+            # print(self.formation_constraints)
             # Set the new force constant depending on the result of the optimization
             if not self.refined_complete:
                 self.opt_state = self.OPT_STATES["reactive_optimization"]
             else:
                 self.opt_state = self.OPT_STATES["reaction_path"]
-                
+
         # When screening fc's, use a path optimization to calcualte the potential and increment fc accordingly
-        elif self.opt_state == self.OPT_STATES['reactive_optimization']:
+        elif self.opt_state == self.OPT_STATES["reactive_optimization"]:
             potentials = self.determine_potential(trajectory, self.formation_constraints, self.fc)
-            #print(self.formation_constraints)
-            #print(len(potentials), potentials[-1])
+            # print(self.formation_constraints)
+            # print(len(potentials), potentials[-1])
             # Set the new force constant depending on the result of the optimization
             if potentials[-1] < PathGenerator.POTENTIAL_THRESHOLD:
                 # Move to path optimization in the case of just completing the fc screen
@@ -396,28 +435,36 @@ class PathGenerator():
                     self.fc = self.fc + PathGenerator.FC_CRUDE_INCREMENT
                 else:
                     self.fc = self.fc + PathGenerator.FC_REFINED_INCREMENT
-            # Set the state back to stretched optimization to prepare for next path optimization    
+            # Set the state back to stretched optimization to prepare for next path optimization
             self.opt_state = self.OPT_STATES["stretched_optimization"]
 
-        # When testing the reaction path, check the potential and optimization results to determine whether to increment fc or finish
-        elif self.opt_state == self.OPT_STATES['reaction_path']:
+        # When testing the reaction path, check the potential and optimization results
+        # to determine whether to increment fc or finish
+        elif self.opt_state == self.OPT_STATES["reaction_path"]:
             potentials = self.determine_potential(trajectory, self.formation_constraints, self.fc)
-            #print(len(potentials), potentials[-1])
+            # print(len(potentials), potentials[-1])
             if potentials[-1] > PathGenerator.POTENTIAL_THRESHOLD:
                 self.opt_state = self.OPT_STATES["stretched_optimization"]
                 self.fc = self.fc + PathGenerator.FC_INCREMENT
-                if self.fc >  self.minimal_fc + PathGenerator.MIN_FC_UPPER_BOUND:
+                if self.fc > self.minimal_fc + PathGenerator.MIN_FC_UPPER_BOUND:
                     self.opt_state = self.OPT_STATES["failed"]
             else:
                 reactant_atoms = ase.Atoms(symbols=self.atomic_symbols, positions=trajectory[0])
                 product_atoms = ase.Atoms(symbols=self.atomic_symbols, positions=trajectory[-1])
-                if not cheminformatics.check_identity_both(reactant_atoms, product_atoms, self.reactant_rdkit_mol, self.product_rdkit_mol, self.charge, self.multiplicity):
+                if not cheminformatics.check_identity_both(
+                    reactant_atoms,
+                    product_atoms,
+                    self.reactant_rdkit_mol,
+                    self.product_rdkit_mol,
+                    self.charge,
+                    self.multiplicity,
+                ):
                     if self.cycle > 2:
                         self.opt_state = self.OPT_STATES["failed"]
                     self.cycle += 1
                     self.opt_state = self.OPT_STATES["stretched_optimization"]
                     self.fc = self.fc + PathGenerator.FC_INCREMENT
-                    if self.fc >  self.minimal_fc + PathGenerator.MIN_FC_UPPER_BOUND:
+                    if self.fc > self.minimal_fc + PathGenerator.MIN_FC_UPPER_BOUND:
                         self.opt_state = self.OPT_STATES["failed"]
                 else:
                     self.opt_state = self.OPT_STATES["completed"]
@@ -436,5 +483,3 @@ class PathGenerator():
         self.reactant_conformer = None
         self.crude_complete = False
         self.refined_complete = False
-
-

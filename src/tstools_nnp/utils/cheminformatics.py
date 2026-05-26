@@ -1,14 +1,16 @@
 """Module for converting between various molecule representations"""
+
+import ase
+import autode as ade
+import numpy as np
+from ase.io import write
+from autode.conformers import conf_gen
 from rdkit import Chem
 from rdkit.Chem import AllChem
-import numpy as np
-import autode as ade
-from autode.conformers import conf_gen
-import ase
-from ase.io import write
+
 
 def ade_mol_to_ase_atoms(ade_mol, charge=0, spin=1):
-    '''
+    """
     Convert an autode Molecule to an ASE Atoms object
 
     Args:
@@ -16,16 +18,17 @@ def ade_mol_to_ase_atoms(ade_mol, charge=0, spin=1):
 
     Returns:
         ase.Atoms: ASE Atoms object
-    '''
+    """
     symbols = [atom.atomic_symbol for atom in ade_mol.atoms]
     positions = [atom.coord for atom in ade_mol.atoms]
     atoms = ase.Atoms(symbols=symbols, positions=positions)
-    atoms.info['charge'] = charge
-    atoms.info['spin'] = spin
+    atoms.info["charge"] = charge
+    atoms.info["spin"] = spin
     return atoms
 
+
 def make_mol(smi):
-    '''
+    """
     Initialize a rdkit molecule from a SMILES string while preserving atom mapping
 
     Args:
@@ -33,7 +36,7 @@ def make_mol(smi):
 
     Returns:
         mol: rdkit.Chem.Mol
-    '''
+    """
     ps = Chem.SmilesParserParams()
     ps.removeHs = False
     og = Chem.MolFromSmiles(smi, ps)
@@ -47,12 +50,14 @@ def make_mol(smi):
     mol = Chem.RenumberAtoms(og, indices_order)
     return mol
 
+
 def check_mol(rwmol):
     mol = rwmol.GetMol()
     Chem.SanitizeMol(mol)
     a = AllChem.EmbedMolecule(mol, maxAttempts=10000000)
     assert a == 0
     return mol
+
 
 def get_metal_atoms(mol):
     """
@@ -61,16 +66,55 @@ def get_metal_atoms(mol):
     Returns:
     list: List of indices of metal atoms.
     """
-    metal_list = ['Al', 'Sb', 'Ag', 'As', 'Ba', 'Be', 'Bi', 'Cd', 'Ca', 'Cr', 'Co', 'Cu', 'Au', 'Fe', 
-              'Pb', 'Mg', 'Mn', 'Hg', 'Mo', 'Ni', 'Pd', 'Pt', 'K', 'Rh', 'Rb', 'Ru', 'Sc', 'Ag', 
-              'Na', 'Sr', 'Ta', 'Tl', 'Th', 'Ti', 'U', 'V', 'Y', 'Zn', 'Zr']
+    metal_list = [
+        "Al",
+        "Sb",
+        "Ag",
+        "As",
+        "Ba",
+        "Be",
+        "Bi",
+        "Cd",
+        "Ca",
+        "Cr",
+        "Co",
+        "Cu",
+        "Au",
+        "Fe",
+        "Pb",
+        "Mg",
+        "Mn",
+        "Hg",
+        "Mo",
+        "Ni",
+        "Pd",
+        "Pt",
+        "K",
+        "Rh",
+        "Rb",
+        "Ru",
+        "Sc",
+        "Ag",
+        "Na",
+        "Sr",
+        "Ta",
+        "Tl",
+        "Th",
+        "Ti",
+        "U",
+        "V",
+        "Y",
+        "Zn",
+        "Zr",
+    ]
     metal_atoms = []
 
     for atom in mol.GetAtoms():
         if atom.GetSymbol() in metal_list:
             metal_atoms.append(atom.GetIdx())
-    
+
     return metal_atoms
+
 
 def get_bonds(mol):
     """
@@ -94,8 +138,18 @@ def get_bonds(mol):
 
     return bonds
 
-def check_identity_both(reac_atoms, prod_atoms, reac_mol, prod_mol, charge, multiplicity, required_dist_change=0.03, metal_bond_length=3.5):
-    '''
+
+def check_identity_both(
+    reac_atoms,
+    prod_atoms,
+    reac_mol,
+    prod_mol,
+    charge,
+    multiplicity,
+    required_dist_change=0.03,
+    metal_bond_length=3.5,
+):
+    """
     Check if both the reactant and product conformers correspond to the input molecules
 
     Args:
@@ -105,15 +159,15 @@ def check_identity_both(reac_atoms, prod_atoms, reac_mol, prod_mol, charge, mult
         prod_mol (rdkit.Chem.rdchem.Mol): Product molecule
         required_dist_change (float): Required change in distance for bond formation/breaking
         metal_bond_length (float): Maximum bond length for metal bonds
-    
+
     Returns:
         bool: True if the conformers correspond to the input molecules, False otherwise
-    '''
-    halides = ['F', 'Cl', 'Br', 'I']
+    """
+    halides = ["F", "Cl", "Br", "I"]
     reactant_bonds = list(get_bonds(reac_mol))
     product_bonds = list(get_bonds(prod_mol))
-    write("reactant_check.xyz", reac_atoms, format='xyz')
-    write("product_check.xyz", prod_atoms, format='xyz')
+    write("reactant_check.xyz", reac_atoms, format="xyz")
+    write("product_check.xyz", prod_atoms, format="xyz")
     ade_mol_r = ade.Molecule("reactant_check.xyz", name="reactant", charge=charge, mult=multiplicity)
     ade_mol_p = ade.Molecule("product_check.xyz", name="product", charge=charge, mult=multiplicity)
     metal_atoms = get_metal_atoms(reac_mol)
@@ -137,7 +191,7 @@ def check_identity_both(reac_atoms, prod_atoms, reac_mol, prod_mol, charge, mult
         bond = (bond[0] + 1, bond[1] + 1)
         if bond[0] not in metal_atoms and bond[1] not in metal_atoms:
             if bond[0] not in halides or bond[1] not in halides:
-                ade_reactant_bonds.append(bond) 
+                ade_reactant_bonds.append(bond)
 
     for bond in product_bonds:
         if bond[0] in metal_atoms or bond[1] in metal_atoms:
@@ -183,7 +237,7 @@ def check_identity_both(reac_atoms, prod_atoms, reac_mol, prod_mol, charge, mult
         prod_bond_length = np.linalg.norm(atom_1.coord - atom_2.coord)
         if reac_bond_length - prod_bond_length > -required_dist_change:
             return False
-    
+
     # In product_metal_bonds_diff, check the difference in distance between bonds for reactant and product
     # If the change in bond distance is less than the negative of required_dist_change, return False
     for bond in product_metal_bonds_diff:
@@ -195,34 +249,37 @@ def check_identity_both(reac_atoms, prod_atoms, reac_mol, prod_mol, charge, mult
         prod_bond_length = np.linalg.norm(atom_1.coord - atom_2.coord)
         if reac_bond_length - prod_bond_length < required_dist_change:
             return False
-    
+
     return set(rdmol_reactant_bonds) == set(ade_reactant_bonds) and set(rdmol_product_bonds) == set(ade_product_bonds)
 
+
 def autode_conf_gen(mol, charge=0, spin=1):
-    '''
+    """
     Generate conformers with autode
-    '''
+    """
     AllChem.EmbedMolecule(mol, maxAttempts=1000000)
-    Chem.MolToXYZFile(mol, 'tmp.xyz')
-    ade_mol = ade.Molecule('tmp.xyz', name='tmp', charge=charge)
+    Chem.MolToXYZFile(mol, "tmp.xyz")
+    ade_mol = ade.Molecule("tmp.xyz", name="tmp", charge=charge)
     confs = [conf_gen.get_simanl_conformer(ade_mol)]
     ade_mol.confs = confs
     return ade_mol_to_ase_atoms(ade_mol, charge=charge, spin=spin)
 
+
 def path_to_xyz_file(path, atomic_symbols, file_name):
-    '''
+    """
     Write a reaction path to an XYZ file
 
     Args:
         path (list): List of conformers, each conformer is a list of coordinates
         atomic_symbols (list): List of atomic symbols
         file_name (str): Name of the output XYZ file
-    '''
-    with open(file_name, 'w') as f:
+    """
+    with open(file_name, "w") as f:
         for conf in path:
             f.write(f"{len(conf)}\n\n")
             for i, coord in enumerate(conf):
                 f.write(f"{atomic_symbols[i]} {coord[0]} {coord[1]} {coord[2]}\n")
+
 
 def get_owning_mol_dict(smiles):
     """
@@ -236,7 +293,7 @@ def get_owning_mol_dict(smiles):
     """
     ps = Chem.SmilesParserParams()
     ps.removeHs = False
-    molecules = [Chem.MolFromSmiles(smi, ps) for smi in smiles.split('.')]
+    molecules = [Chem.MolFromSmiles(smi, ps) for smi in smiles.split(".")]
     owning_mol_dict = {}
 
     for mol_index, mol in enumerate(molecules):
@@ -244,25 +301,3 @@ def get_owning_mol_dict(smiles):
             owning_mol_dict[atom.GetAtomMapNum()] = mol_index
 
     return owning_mol_dict
-
-def get_bonds(mol):
-    """
-    Get the bond strings of a molecule.
-
-    Args:
-        mol (Chem.Mol): Molecule.
-
-    Returns:
-        set: Set of bond strings.
-    """
-    bonds = set()
-    for bond in mol.GetBonds():
-        atom_1 = mol.GetAtomWithIdx(bond.GetBeginAtomIdx()).GetAtomMapNum()
-        atom_2 = mol.GetAtomWithIdx(bond.GetEndAtomIdx()).GetAtomMapNum()
-
-        if atom_1 < atom_2:
-            bonds.add((atom_1, atom_2))
-        else:
-            bonds.add((atom_2, atom_1))
-
-    return bonds
