@@ -4,12 +4,21 @@
 # All .egg-info folders
 **/*.egg-info
 
-# Ignore all files in the data folder except example.txt
-data/*
-!data/example.txt
+# Local pixi environments and tool caches
+/.pixi/
+/.pytest_cache/
+/.ruff_cache/
 
-# Ignore all folders except data, run_scripts, and src
-/*
+# Ignore experiment output directories at the repo root.
+# Root-level files (pyproject.toml, pixi.toml, pixi.lock, ...) stay tracked:
+# this matches directories only, unlike the previous "/*".
+/*/
 !/data/
 !/run_scripts/
 !/src/
+!/tests/
+!/.github/
+
+# Ignore all files in the data folder except example.txt
+data/*
+!data/example.txt

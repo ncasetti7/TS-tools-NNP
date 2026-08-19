@@ -1,0 +1,65 @@
+[workspace]
+name = "tstools-nnp"
+version = "0.0.1"
+description = "Transition state search tools using neural network potentials"
+authors = ["Nicholas Casetti <ncasetti@mit.edu>"]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = ">=3.11,<3.12"
+numpy = ">=1.24"
+scipy = ">=1.10"
+rdkit = ">=2023"
+autode = "*"
+psutil = "*"
+
+[pypi-dependencies]
+# Install the package itself in editable mode
+tstools-nnp = { path = ".", editable = true }
+torch = ">=2.0"
+ase = ">=3.22"
+sella = "*"
+fairchem-core = "*"
+# NOTE: aimnet may need to be installed from source; adjust if the PyPI name differs
+aimnet = "*"
+pysisyphus = "*"
+
+# ── dev feature: adds linting, formatting, and testing tools ──────────────────
+
+[feature.dev.pypi-dependencies]
+ruff = "*"
+pytest = "*"
+pytest-cov = "*"
+
+# ── ci-test feature: lightweight env used in CI (no torch/aimnet/fairchem) ────
+
+[feature.ci-test.dependencies]
+python = ">=3.11,<3.12"
+numpy = ">=1.24"
+scipy = ">=1.10"
+rdkit = ">=2023"
+
+[feature.ci-test.pypi-dependencies]
+ase = ">=3.22"
+pysisyphus = "*"
+pytest = "*"
+pytest-cov = "*"
+tstools-nnp = { path = ".", editable = true }
+
+# ── environments ──────────────────────────────────────────────────────────────
+
+[environments]
+default = { features = [], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+ci-test = { features = ["ci-test"], solve-group = "ci-test" }
+
+# ── tasks ─────────────────────────────────────────────────────────────────────
+
+[tasks]
+lint = "ruff check ."
+lint-fix = "ruff check --fix ."
+format = "ruff format ."
+format-check = "ruff format --check ."
+test = "pytest"
+test-cov = "pytest --cov=tstools_nnp --cov-report=term-missing"

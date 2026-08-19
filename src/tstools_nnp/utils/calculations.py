@@ -7,9 +7,10 @@ from ase.io import read
 from ase.io.trajectory import Trajectory
 from ase.optimize import BFGS, FIRE
 from rdkit import Chem
-from sella import IRC, Sella
+from sella import Sella
 
 from tstools_nnp.utils.interfaces import AIMNet2ASECalculator
+from tstools_nnp.utils.sella_compat import IRC
 
 EV_TO_KCAL = 23.0605
 
