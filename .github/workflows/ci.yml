@@ -10,7 +10,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -22,10 +22,11 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: prefix-dev/setup-pixi@v0.8.0
+      - uses: actions/checkout@v5
+      - uses: prefix-dev/setup-pixi@v0.10.1
         with:
-          pixi-version: v0.41.4
+          # Must be able to read pixi.lock's format (v6); v0.41.4 could not.
+          pixi-version: v0.72.2
           environments: ci-test
           cache: true
       - name: Run tests
